@@ -76,6 +76,7 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
   String ragStatus = 'Not checked';
   String formatStatus = 'Not checked';
   String separationStatus = 'Not checked';
+  String authStatus = 'Not checked';
   String billingStatus = 'Not checked';
   String storageStatus = 'Not checked';
   String accountStatus = 'Not signed in';
@@ -563,6 +564,7 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
     var nextRagStatus = 'Unknown';
     var nextFormatStatus = 'Unknown';
     var nextSeparationStatus = 'Unknown';
+    var nextAuthStatus = 'Unknown';
     var nextBillingStatus = 'Unknown';
     var nextStorageStatus = 'Unknown';
     try {
@@ -593,6 +595,25 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
         }
       } else {
         nextAiStatus = 'HTTP ${ai.statusCode}';
+      }
+
+      final auth = await http
+          .get(Uri.parse('$backendBaseUrl/api/auth/status'))
+          .timeout(const Duration(seconds: 4));
+      if (auth.statusCode == 200) {
+        final payload = jsonDecode(auth.body) as Map<String, dynamic>;
+        final provider = payload['provider'] as String? ?? 'local';
+        final configured = payload['configured'] == true;
+        final required = payload['requireAuth'] == true;
+        if (provider == 'local') {
+          nextAuthStatus = required ? 'Local auth required' : 'Local demo auth';
+        } else if (configured) {
+          nextAuthStatus = '$provider ready${required ? '' : ' optional'}';
+        } else {
+          nextAuthStatus = '$provider selected - config missing';
+        }
+      } else {
+        nextAuthStatus = 'HTTP ${auth.statusCode}';
       }
 
       final docs = await http
@@ -679,6 +700,7 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       nextRagStatus = 'Unavailable';
       nextFormatStatus = 'Unavailable';
       nextSeparationStatus = 'Unavailable';
+      nextAuthStatus = 'Unavailable';
       nextBillingStatus = 'Unavailable';
       nextStorageStatus = 'Unavailable';
     }
@@ -689,6 +711,7 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       ragStatus = nextRagStatus;
       formatStatus = nextFormatStatus;
       separationStatus = nextSeparationStatus;
+      authStatus = nextAuthStatus;
       billingStatus = nextBillingStatus;
       storageStatus = nextStorageStatus;
       checkingSystem = false;
@@ -1666,6 +1689,7 @@ class _SystemStatusPanel extends StatelessWidget {
           _InfoRow('OKF/RAG knowledge', state.ragStatus),
           _InfoRow('Formats', state.formatStatus),
           _InfoRow('Stem separation', state.separationStatus),
+          _InfoRow('Auth', state.authStatus),
           _InfoRow('Storage', state.storageStatus),
           _InfoRow('Billing', state.billingStatus),
           const SizedBox(height: 10),

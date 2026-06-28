@@ -28,6 +28,8 @@ Default URL: `http://127.0.0.1:8788`
 - `POST /api/audio/transcode`
 - `GET /api/storage/status`
 - `GET /api/storage/export`
+- `GET /api/auth/status`
+- `GET /api/auth/me`
 
 ## Free Local Copilot
 
@@ -107,6 +109,35 @@ scripts\check_storage.cmd
 ```
 
 The backend also exposes `GET /api/storage/status` and `GET /api/storage/export`.
+
+For free hosted persistence, set:
+
+```text
+AURALYZE_STORAGE=postgres
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+```
+
+The Postgres adapter is compatible with Neon and Supabase free Postgres URLs.
+
+## Free Hosted Auth
+
+Local demo auth stays enabled by default. To verify hosted JWTs, install `requirements.txt` and set Clerk or Firebase environment variables:
+
+```text
+AURALYZE_AUTH_PROVIDER=clerk
+CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
+AURALYZE_REQUIRE_AUTH=true
+```
+
+or:
+
+```text
+AURALYZE_AUTH_PROVIDER=firebase
+FIREBASE_PROJECT_ID=your-firebase-project-id
+AURALYZE_REQUIRE_AUTH=true
+```
+
+When `AURALYZE_REQUIRE_AUTH=true`, project and custom-knowledge writes require `Authorization: Bearer <token>`.
 
 ## OKF MCP Server
 

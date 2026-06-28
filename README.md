@@ -27,6 +27,8 @@ Auralyze is an early prototype for an AI Audio Diagnosis Copilot: a browser-base
 - Local project memory for saving, loading, and deleting analysis snapshots
 - Backend-backed local account, plan activation, and cloud-project save/load/delete workflow
 - Free JSON or SQLite persistence for projects, accounts, and custom knowledge
+- Optional free hosted auth through Clerk/Firebase JWT verification
+- Optional free hosted Postgres persistence through Neon/Supabase `DATABASE_URL`
 - Import/export `.auralyze.json` project snapshots
 - Client-ready self-contained HTML report export
 - JSON report export
@@ -81,6 +83,7 @@ Use the **System status** panel inside the app to confirm:
 - FFmpeg format support is active or WAV-only
 - Demucs stem separation or free FFmpeg fallback is ready
 - storage is using free JSON files or free SQLite
+- auth is local demo mode or hosted provider ready
 
 ## Free Local AI Setup
 
@@ -138,6 +141,35 @@ scripts\check_storage.cmd
 ```
 
 The app's **System status** panel shows the active storage backend and current project/knowledge counts.
+
+For a free hosted database, create a Neon or Supabase Postgres project, then set:
+
+```text
+AURALYZE_STORAGE=postgres
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+```
+
+The backend stores projects, accounts, and custom knowledge in the same `app_state` table.
+
+## Free Hosted Auth
+
+The live demo uses local demo auth by default so visitors can try it immediately. For real hosted identity, create a free Clerk or Firebase project and set:
+
+```text
+AURALYZE_AUTH_PROVIDER=clerk
+CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
+AURALYZE_REQUIRE_AUTH=true
+```
+
+or:
+
+```text
+AURALYZE_AUTH_PROVIDER=firebase
+FIREBASE_PROJECT_ID=your-firebase-project-id
+AURALYZE_REQUIRE_AUTH=true
+```
+
+The backend exposes `GET /api/auth/status` and `GET /api/auth/me`. Protected project/knowledge writes are enforced only when `AURALYZE_REQUIRE_AUTH=true`, so the current public demo remains usable.
 
 ## FFmpeg Setup For MP3/M4A/FLAC
 
@@ -205,6 +237,7 @@ Real local workflow now includes:
 - deterministic local DSP/OKF copilot fallback when no model is installed
 - real local OKF/RAG retrieval from structured `.okf.json` files, built-in notes, markdown files, and user-added references
 - storage status, backup export endpoint, and free SQLite persistence option
+- optional Clerk/Firebase JWT auth and optional Postgres storage adapter
 - copilot context includes the active reference-match findings when a reference file is loaded
 - local account sign-in, local Pro plan activation, and backend project sync
 
@@ -301,6 +334,7 @@ A dependency-free local backend is available in `backend/` for product features 
 - free local plan activation API
 - RAG document ingestion API
 - storage status/export API
+- auth status/me API
 - mastering target API
 - stem separation job scaffold
 - format inspection scaffold
@@ -314,7 +348,7 @@ Default URL: `http://127.0.0.1:8788`
 
 The default AI provider is Ollama. If Ollama is unavailable, the copilot automatically falls back to local DSP/OKF rules. Optional paid providers can be added later behind the same API surface without changing the Flutter app.
 
-Project, account, and user-added knowledge storage is free by default. Use `AURALYZE_STORAGE=json` for local JSON files or `AURALYZE_STORAGE=sqlite` for a local SQLite file.
+Project, account, and user-added knowledge storage is free by default. Use `AURALYZE_STORAGE=json` for local JSON files, `AURALYZE_STORAGE=sqlite` for a local SQLite file, or `AURALYZE_STORAGE=postgres` with a free Neon/Supabase `DATABASE_URL`.
 
 ## Packaging And App Builds
 
@@ -345,4 +379,4 @@ The container builds Flutter web and serves both the app and backend from one po
 
 The repo also includes a free GitHub Pages workflow at `.github/workflows/pages.yml`. It publishes the Flutter web demo from `main`; backend-only features will show offline until you connect a hosted backend URL through the `AURALYZE_BACKEND_URL` repository variable.
 
-Free repository checks are available in `.github/workflows/ci.yml`; it runs backend checks, OKF/MCP smoke tests, storage checks, Flutter analyze/tests, and a web build.
+Free repository checks are available in `.github/workflows/ci.yml`; it runs backend checks, OKF/MCP smoke tests, storage checks, upload-route smoke tests, Flutter analyze/tests, and a web build.

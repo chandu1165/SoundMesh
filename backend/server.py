@@ -188,6 +188,24 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/ai/status":
             self.send_json(ai_status())
             return
+        if parsed.path == "/api/auth/status":
+            self.send_json(auth_status())
+            return
+        if parsed.path == "/api/auth/me":
+            try:
+                user = verify_bearer_token(self.headers.get("authorization"))
+                self.send_json({"authenticated": True, "user": user})
+            except ValueError as error:
+                status = 401 if auth_required() else 200
+                self.send_json(
+                    {
+                        "authenticated": False,
+                        "provider": auth_provider(),
+                        "error": str(error),
+                    },
+                    status=status,
+                )
+            return
         if parsed.path == "/api/audio/status":
             self.send_json(
                 {
@@ -230,10 +248,14 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
             )
             return
         if parsed.path == "/api/projects":
+            if not self.ensure_auth_if_required():
+                return
             self.send_json({"projects": list(read_projects().values())})
             return
         project_match = re.fullmatch(r"/api/projects/(?P<project_id>[^/]+)", parsed.path)
         if project_match:
+            if not self.ensure_auth_if_required():
+                return
             project = read_projects().get(project_match.group("project_id"))
             if project is None:
                 self.send_json({"error": "Project not found"}, status=404)
@@ -293,6 +315,8 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
             return
         body = self.read_body()
         if parsed.path == "/api/projects":
+            if not self.ensure_auth_if_required():
+                return
             projects = read_projects()
             project_id = body.get("id") or str(uuid4())
             project = {
@@ -350,6 +374,8 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
             )
             return
         if parsed.path == "/api/knowledge/documents":
+            if not self.ensure_auth_if_required():
+                return
             documents = read_knowledge_documents()
             document_id = body.get("id") or str(uuid4())
             tags = body.get("tags", [])
@@ -423,12 +449,31 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         project_match = re.fullmatch(r"/api/projects/(?P<project_id>[^/]+)", parsed.path)
         if project_match:
+            if not self.ensure_auth_if_required():
+                return
             projects = read_projects()
             removed = projects.pop(project_match.group("project_id"), None)
             write_projects(projects)
             self.send_json({"deleted": removed is not None})
             return
         self.send_error(404, "Route not found")
+
+    def ensure_auth_if_required(self) -> bool:
+        if not auth_required():
+            return True
+        try:
+            verify_bearer_token(self.headers.get("authorization"))
+            return True
+        except ValueError as error:
+            self.send_json(
+                {
+                    "error": "Authentication required.",
+                    "detail": str(error),
+                    "provider": auth_provider(),
+                },
+                status=401,
+            )
+            return False
 
     def handle_stem_separation(self) -> None:
         try:
@@ -550,8 +595,18 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
         reason: str,
         detail: str | None = None,
     ) -> None:
+        safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "_", Path(filename).stem) or "mix"
+        suffix = Path(filename).suffix or ".audio"
         path = ffmpeg_path()
         if path is None:
+            if suffix.lower() == ".wav":
+                self.send_wav_diagnostic_stems(
+                    filename,
+                    upload,
+                    reason,
+                    "FFmpeg was unavailable; returned duplicate diagnostic WAV stems.",
+                )
+                return
             self.send_json(
                 {
                     "error": "Neither Demucs nor FFmpeg fallback is available.",
@@ -560,8 +615,6 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
                 status=503,
             )
             return
-        safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "_", Path(filename).stem) or "mix"
-        suffix = Path(filename).suffix or ".audio"
         max_seconds = int(os.environ.get("AURALYZE_FALLBACK_MAX_SECONDS", "180"))
         filters = [
             (
@@ -608,13 +661,24 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
                         str(output_path),
                     ]
                 )
-                result = subprocess.run(
-                    command,
-                    capture_output=True,
-                    text=True,
-                    timeout=max(120, min(360, max_seconds + 90)),
-                    check=False,
-                )
+                try:
+                    result = subprocess.run(
+                        command,
+                        capture_output=True,
+                        text=True,
+                        timeout=max(120, min(360, max_seconds + 90)),
+                        check=False,
+                    )
+                except OSError as error:
+                    if suffix.lower() == ".wav":
+                        self.send_wav_diagnostic_stems(
+                            filename,
+                            upload,
+                            reason,
+                            f"FFmpeg could not start: {error}",
+                        )
+                        return
+                    raise
                 if result.returncode != 0 or not output_path.exists():
                     errors.append(f"{role}: {(result.stderr or result.stdout)[-600:]}")
                     continue
@@ -652,6 +716,37 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
                 }
             )
 
+    def send_wav_diagnostic_stems(
+        self,
+        filename: str,
+        upload: bytes,
+        reason: str,
+        detail: str,
+    ) -> None:
+        safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "_", Path(filename).stem) or "mix"
+        stems = [
+            {
+                "name": f"{safe_name}_{role}.wav",
+                "role": role,
+                "format": "wav",
+                "bytesBase64": base64.b64encode(upload).decode("ascii"),
+            }
+            for role in ["vocals", "drums", "bass", "other"]
+        ]
+        self.send_json(
+            {
+                "source": filename,
+                "engine": "WAV diagnostic fallback",
+                "model": "duplicate-wav-v1",
+                "fallback": True,
+                "approximate": True,
+                "reason": reason,
+                "detail": detail,
+                "stems": stems,
+                "note": "These duplicate WAV stems keep diagnosis working when hosted separation tools are unavailable.",
+            }
+        )
+
     def handle_audio_transcode(self) -> None:
         path = ffmpeg_path()
         if path is None:
@@ -666,6 +761,13 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
         try:
             filename, upload = self.read_multipart_file("file")
             suffix = Path(filename).suffix or ".audio"
+            if suffix.lower() == ".wav":
+                self.send_bytes(
+                    upload,
+                    "audio/wav",
+                    f"{Path(filename).stem}.wav",
+                )
+                return
             with tempfile.TemporaryDirectory() as tmp:
                 input_path = Path(tmp) / f"input{suffix}"
                 output_path = Path(tmp) / "output.wav"
@@ -1100,6 +1202,168 @@ def ai_status() -> dict:
     }
 
 
+def auth_provider() -> str:
+    provider = os.environ.get("AURALYZE_AUTH_PROVIDER", "local").strip().lower()
+    if provider in {"clerk", "firebase"}:
+        return provider
+    return "local"
+
+
+def auth_required() -> bool:
+    return os.environ.get("AURALYZE_REQUIRE_AUTH", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def auth_status() -> dict:
+    provider = auth_provider()
+    if provider == "clerk":
+        issuer = clerk_issuer()
+        return {
+            "provider": "clerk",
+            "configured": bool(issuer or os.environ.get("CLERK_JWKS_URL")),
+            "free": True,
+            "requireAuth": auth_required(),
+            "mode": "clerk-ready"
+            if issuer or os.environ.get("CLERK_JWKS_URL")
+            else "clerk-missing-config",
+            "installHint": "Set CLERK_ISSUER or CLERK_JWKS_URL after creating a free Clerk app.",
+        }
+    if provider == "firebase":
+        project_id = os.environ.get("FIREBASE_PROJECT_ID")
+        return {
+            "provider": "firebase",
+            "configured": bool(project_id),
+            "free": True,
+            "requireAuth": auth_required(),
+            "mode": "firebase-ready" if project_id else "firebase-missing-project",
+            "installHint": "Set FIREBASE_PROJECT_ID after creating a Firebase Spark project.",
+        }
+    return {
+        "provider": "local",
+        "configured": True,
+        "free": True,
+        "requireAuth": auth_required(),
+        "mode": "local-demo-auth",
+        "installHint": "Use Clerk or Firebase env vars when you want hosted identity.",
+    }
+
+
+def verify_bearer_token(header: str | None) -> dict:
+    provider = auth_provider()
+    if provider == "local":
+        return {"id": "local-demo", "provider": "local", "email": "local@auralyze.dev"}
+    token = bearer_token(header)
+    if provider == "clerk":
+        return verify_clerk_token(token)
+    if provider == "firebase":
+        return verify_firebase_token(token)
+    raise ValueError(f"Unsupported auth provider: {provider}")
+
+
+def bearer_token(header: str | None) -> str:
+    if not header:
+        raise ValueError("Missing Authorization: Bearer token.")
+    scheme, _, token = header.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        raise ValueError("Expected Authorization: Bearer <token>.")
+    return token.strip()
+
+
+def verify_clerk_token(token: str) -> dict:
+    issuer = clerk_issuer()
+    jwks_url = os.environ.get("CLERK_JWKS_URL") or (
+        f"{issuer.rstrip('/')}/.well-known/jwks.json" if issuer else ""
+    )
+    if not jwks_url:
+        raise ValueError("CLERK_ISSUER or CLERK_JWKS_URL is not configured.")
+    payload = verify_jwt(
+        token,
+        jwks_url=jwks_url,
+        issuer=issuer,
+        audience=os.environ.get("CLERK_AUDIENCE"),
+    )
+    return {
+        "id": payload.get("sub", ""),
+        "provider": "clerk",
+        "email": payload.get("email") or payload.get("primary_email_address_id"),
+        "claims": safe_claims(payload),
+    }
+
+
+def verify_firebase_token(token: str) -> dict:
+    project_id = os.environ.get("FIREBASE_PROJECT_ID")
+    if not project_id:
+        raise ValueError("FIREBASE_PROJECT_ID is not configured.")
+    payload = verify_jwt(
+        token,
+        jwks_url="https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com",
+        issuer=f"https://securetoken.google.com/{project_id}",
+        audience=project_id,
+    )
+    firebase_claims = payload.get("firebase", {})
+    return {
+        "id": payload.get("sub", ""),
+        "provider": "firebase",
+        "email": payload.get("email"),
+        "signInProvider": firebase_claims.get("sign_in_provider")
+        if isinstance(firebase_claims, dict)
+        else None,
+        "claims": safe_claims(payload),
+    }
+
+
+def verify_jwt(
+    token: str,
+    *,
+    jwks_url: str,
+    issuer: str | None = None,
+    audience: str | None = None,
+) -> dict:
+    try:
+        import jwt
+        from jwt import PyJWKClient
+    except ImportError as error:
+        raise ValueError(
+            "JWT verification dependencies are missing. Install requirements.txt."
+        ) from error
+    signing_key = PyJWKClient(jwks_url).get_signing_key_from_jwt(token).key
+    options = {
+        "verify_aud": bool(audience),
+        "verify_iss": bool(issuer),
+    }
+    try:
+        payload = jwt.decode(
+            token,
+            signing_key,
+            algorithms=["RS256"],
+            audience=audience,
+            issuer=issuer,
+            options=options,
+        )
+    except jwt.PyJWTError as error:
+        raise ValueError(f"Invalid token: {error}") from error
+    if not isinstance(payload, dict):
+        raise ValueError("Invalid token payload.")
+    return payload
+
+
+def clerk_issuer() -> str:
+    return (
+        os.environ.get("CLERK_ISSUER")
+        or os.environ.get("CLERK_JWT_ISSUER")
+        or ""
+    ).strip()
+
+
+def safe_claims(payload: dict) -> dict:
+    keep = ["sub", "email", "name", "iss", "aud", "exp", "iat"]
+    return {key: payload[key] for key in keep if key in payload}
+
+
 def ollama_base_url() -> str:
     return os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 
@@ -1336,17 +1600,28 @@ def write_knowledge_documents(documents: dict) -> None:
 
 def storage_backend() -> str:
     requested = os.environ.get("AURALYZE_STORAGE", "json").strip().lower()
+    if requested in {"postgres", "postgresql", "neon"} and os.environ.get(
+        "DATABASE_URL"
+    ):
+        return "postgres"
     return "sqlite" if requested == "sqlite" else "json"
 
 
 def read_store(name: str, json_path: Path) -> dict:
-    if storage_backend() == "sqlite":
+    backend = storage_backend()
+    if backend == "postgres":
+        return read_postgres_store(name)
+    if backend == "sqlite":
         return read_sqlite_store(name)
     return read_json_file(json_path)
 
 
 def write_store(name: str, json_path: Path, payload: dict) -> None:
-    if storage_backend() == "sqlite":
+    backend = storage_backend()
+    if backend == "postgres":
+        write_postgres_store(name, payload)
+        return
+    if backend == "sqlite":
         write_sqlite_store(name, payload)
         return
     write_json_file(json_path, payload)
@@ -1397,14 +1672,74 @@ def write_sqlite_store(name: str, payload: dict) -> None:
         )
 
 
+def postgres_connection():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is required for Postgres storage.")
+    try:
+        import psycopg
+    except ImportError as error:
+        raise RuntimeError(
+            "Postgres storage requires psycopg. Install requirements.txt."
+        ) from error
+    connection = psycopg.connect(database_url)
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS app_state (
+            name TEXT PRIMARY KEY,
+            payload JSONB NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL
+        )
+        """
+    )
+    connection.commit()
+    return connection
+
+
+def read_postgres_store(name: str) -> dict:
+    with postgres_connection() as connection:
+        row = connection.execute(
+            "SELECT payload FROM app_state WHERE name = %s",
+            (name,),
+        ).fetchone()
+    if row is None:
+        return {}
+    payload = row[0]
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def write_postgres_store(name: str, payload: dict) -> None:
+    serialized = json.dumps(payload)
+    with postgres_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO app_state (name, payload, updated_at)
+            VALUES (%s, %s::jsonb, %s)
+            ON CONFLICT(name) DO UPDATE SET
+                payload = EXCLUDED.payload,
+                updated_at = EXCLUDED.updated_at
+            """,
+            (name, serialized, iso_now()),
+        )
+        connection.commit()
+
+
 def storage_status() -> dict:
     backend = storage_backend()
-    if backend == "sqlite":
+    if backend == "postgres":
+        path = redact_database_url(os.environ.get("DATABASE_URL", ""))
+    elif backend == "sqlite":
         path = SQLITE_FILE
     else:
         path = DATA_DIR
     return {
         "backend": backend,
+        "requestedBackend": os.environ.get("AURALYZE_STORAGE", "json"),
         "free": True,
         "path": str(path),
         "projectCount": len(read_projects()),
@@ -1412,6 +1747,19 @@ def storage_status() -> dict:
         "knowledgeDocumentCount": len(read_knowledge_documents()),
         "backupEndpoint": "/api/storage/export",
     }
+
+
+def redact_database_url(value: str) -> str:
+    if not value:
+        return ""
+    parsed = urlparse(value)
+    if not parsed.scheme or not parsed.netloc:
+        return "configured"
+    host = parsed.hostname or ""
+    port = f":{parsed.port}" if parsed.port else ""
+    user = parsed.username or "user"
+    path = parsed.path or ""
+    return f"{parsed.scheme}://{user}:***@{host}{port}{path}"
 
 
 def iso_now() -> str:
@@ -1467,6 +1815,8 @@ def product_features() -> list[dict]:
     return [
         {"name": "Open-source copilot", "status": "ollama-or-local-rules-ready"},
         {"name": "OKF/RAG knowledge", "status": "structured-local-index-ready"},
+        {"name": "Hosted auth", "status": auth_status()["mode"]},
+        {"name": "Persistent storage", "status": f"{storage_backend()}-ready"},
         {"name": "Cloud projects", "status": "local-api-ready"},
         {"name": "Stem separation", "status": "demucs-or-ffmpeg-fallback-ready"},
         {"name": "Format transcode", "status": "ffmpeg-endpoint-ready"},

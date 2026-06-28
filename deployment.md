@@ -133,4 +133,27 @@ For single-container Docker deployment, leave `AURALYZE_BACKEND_URL` empty so th
 
 The backend supports free JSON or SQLite persistence. On free cloud hosts, local disk may be reset during redeploys, so use `/api/storage/export` for backup or move only long-term shared/team data to a managed database later.
 
+For a free persistent hosted database, use Neon or Supabase Postgres:
+
+```text
+AURALYZE_STORAGE=postgres
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+```
+
+For free hosted identity, use Clerk or Firebase:
+
+```text
+AURALYZE_AUTH_PROVIDER=clerk
+CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
+AURALYZE_REQUIRE_AUTH=true
+```
+
+or:
+
+```text
+AURALYZE_AUTH_PROVIDER=firebase
+FIREBASE_PROJECT_ID=your-firebase-project-id
+AURALYZE_REQUIRE_AUTH=true
+```
+
 Demucs is CPU-heavy. The deployed free backend uses an approximate FFmpeg fallback. For clean hosted source separation, run Demucs on a worker machine or queue service rather than inside the web request process.

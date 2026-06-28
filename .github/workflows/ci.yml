@@ -25,12 +25,20 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Install backend dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install -r requirements.txt
+
       - name: Check backend Python
         run: |
-          python -m py_compile backend/server.py backend/okf_mcp_server.py scripts/check_okf.py scripts/check_okf_mcp.py scripts/check_local_ai.py scripts/check_storage.py
+          python -m py_compile backend/server.py backend/okf_mcp_server.py scripts/check_okf.py scripts/check_okf_mcp.py scripts/check_local_ai.py scripts/check_storage.py scripts/check_upload_routes.py scripts/check_auth.py
           python scripts/check_okf.py
           python scripts/check_okf_mcp.py
           python scripts/check_storage.py
+          python scripts/check_auth.py
+          python scripts/check_upload_routes.py
 
       - name: Check Flutter app
         working-directory: auralyze_app

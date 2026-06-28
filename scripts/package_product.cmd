@@ -37,6 +37,7 @@ if exist "%DIST%\scripts\__pycache__" rmdir /s /q "%DIST%\scripts\__pycache__"
 copy /y "README.md" "%DIST%\README.md" >nul
 copy /y "deployment.md" "%DIST%\deployment.md" >nul
 copy /y "Dockerfile" "%DIST%\Dockerfile" >nul
+copy /y "requirements.txt" "%DIST%\requirements.txt" >nul
 copy /y ".dockerignore" "%DIST%\.dockerignore" >nul
 copy /y "render.yaml" "%DIST%\render.yaml" >nul
 copy /y ".env.example" "%DIST%\.env.example" >nul

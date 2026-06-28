@@ -27,6 +27,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY backend/ ./backend/
 COPY --from=web-build /src/auralyze_app/build/web ./web
 
