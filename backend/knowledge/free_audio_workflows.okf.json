@@ -1,0 +1,325 @@
+{
+  "schema": "auralyze-okf-v1",
+  "title": "Free Audio Production Workflows",
+  "description": "Open, local-first workflows for common music, podcast, repair, mastering, and sound-design problems.",
+  "entries": [
+    {
+      "id": "podcast-dialogue-clarity",
+      "title": "Podcast Dialogue Clarity",
+      "symptoms": [
+        "speech is hard to understand",
+        "voice sounds dull or buried",
+        "listener turns volume up but words stay unclear"
+      ],
+      "causes": [
+        "too much low-mid buildup between 150 Hz and 350 Hz",
+        "not enough controlled presence between 2 kHz and 5 kHz",
+        "background noise competes with consonants"
+      ],
+      "fixes": [
+        "high-pass below the voice fundamental, often 70 Hz to 100 Hz for speech",
+        "cut 180 Hz to 320 Hz gently before boosting presence",
+        "use light compression with makeup gain, then de-ess only if sibilance appears"
+      ],
+      "tools": [
+        "EQ",
+        "compressor",
+        "de-esser",
+        "noise gate"
+      ],
+      "tags": [
+        "podcast",
+        "dialogue",
+        "speech",
+        "clarity",
+        "free"
+      ]
+    },
+    {
+      "id": "room-reverb-echo-control",
+      "title": "Room Reverb And Echo Control",
+      "symptoms": [
+        "recording sounds distant",
+        "voice has a boxy room sound",
+        "words smear after each phrase"
+      ],
+      "causes": [
+        "strong early reflections from walls or desk surfaces",
+        "long room decay compared with speech gaps",
+        "microphone is too far from the source"
+      ],
+      "fixes": [
+        "move the mic closer and lower input gain before using software repair",
+        "use a downward expander for pauses and a narrow low-mid cut for boxiness",
+        "avoid heavy reverb removal when it creates metallic artifacts"
+      ],
+      "tools": [
+        "expander",
+        "EQ",
+        "transient-aware denoise",
+        "acoustic treatment"
+      ],
+      "tags": [
+        "room",
+        "reverb",
+        "echo",
+        "dialogue",
+        "repair"
+      ]
+    },
+    {
+      "id": "sibilance-deessing",
+      "title": "Sibilance De-Essing",
+      "symptoms": [
+        "s sounds painful",
+        "vocal gets sharp on consonants",
+        "hi-hats and vocal sibilance fight"
+      ],
+      "causes": [
+        "narrow energy spike between 5 kHz and 9 kHz",
+        "bright microphone or aggressive presence boost",
+        "compression raises consonants too much"
+      ],
+      "fixes": [
+        "find the sibilant band with a narrow EQ sweep, then use a de-esser or dynamic EQ",
+        "de-ess before final brightening if the compressor exaggerates s sounds",
+        "reduce only the harsh moments rather than cutting all top end"
+      ],
+      "tools": [
+        "de-esser",
+        "dynamic EQ",
+        "multiband compressor"
+      ],
+      "tags": [
+        "vocal",
+        "sibilance",
+        "deesser",
+        "harshness"
+      ]
+    },
+    {
+      "id": "phase-mono-compatibility",
+      "title": "Phase And Mono Compatibility",
+      "symptoms": [
+        "mix sounds wide in stereo but weak in mono",
+        "bass disappears on phones",
+        "correlation meter drops below zero"
+      ],
+      "causes": [
+        "wide low frequencies with opposite polarity between channels",
+        "stereo widening applied to mono-critical instruments",
+        "multi-mic tracks are not time aligned"
+      ],
+      "fixes": [
+        "sum low frequencies below 120 Hz to mono",
+        "check polarity and small timing offsets on multi-mic sources",
+        "keep lead vocal, kick, bass, and snare stable near the center"
+      ],
+      "tools": [
+        "phase correlation meter",
+        "mono switch",
+        "mid-side EQ",
+        "sample delay"
+      ],
+      "tags": [
+        "phase",
+        "mono",
+        "stereo",
+        "translation",
+        "bass"
+      ]
+    },
+    {
+      "id": "stereo-width-translation",
+      "title": "Stereo Width Translation",
+      "symptoms": [
+        "mix feels impressive on headphones but small on speakers",
+        "wide elements distract from the vocal",
+        "chorus loses focus"
+      ],
+      "causes": [
+        "side signal is louder than the center in important bands",
+        "too many instruments occupy the same wide image",
+        "low mids are widened and blur the groove"
+      ],
+      "fixes": [
+        "use width mostly on supporting textures, delays, pads, and doubles",
+        "keep low-end and core rhythm more centered",
+        "automate width wider in choruses instead of widening the whole song"
+      ],
+      "tools": [
+        "mid-side EQ",
+        "stereo imager",
+        "automation",
+        "mono check"
+      ],
+      "tags": [
+        "stereo",
+        "width",
+        "translation",
+        "arrangement"
+      ]
+    },
+    {
+      "id": "arrangement-energy-build",
+      "title": "Arrangement Energy Build",
+      "symptoms": [
+        "song feels flat",
+        "drop does not feel bigger than verse",
+        "chorus lacks emotional lift"
+      ],
+      "causes": [
+        "too many high-energy elements are present before the chorus",
+        "no contrast in register, density, or rhythm",
+        "automation stays static across sections"
+      ],
+      "fixes": [
+        "remove one or two parts before the chorus so the hook has contrast",
+        "add riser, reverse reverb, drum fill, or filtered noise before the transition",
+        "automate level, width, brightness, or reverb send into the high-energy section"
+      ],
+      "tools": [
+        "arrangement map",
+        "volume automation",
+        "filter automation",
+        "riser generator"
+      ],
+      "tags": [
+        "arrangement",
+        "energy",
+        "drop",
+        "chorus",
+        "automation"
+      ]
+    },
+    {
+      "id": "sound-design-cinematic-impact",
+      "title": "Cinematic Impact Sound Design",
+      "symptoms": [
+        "impact sound feels thin",
+        "explosion lacks weight",
+        "hit does not cut through the scene"
+      ],
+      "causes": [
+        "impact has only one layer",
+        "transient and tail are not separated",
+        "low layer is masking the mid punch"
+      ],
+      "fixes": [
+        "layer a short transient click, mid punch, sub drop, and textured tail",
+        "high-pass noisy texture layers so the sub remains clean",
+        "compress or limit the bus after balancing layers"
+      ],
+      "tools": [
+        "synth",
+        "noise generator",
+        "pitch envelope",
+        "reverb",
+        "limiter"
+      ],
+      "tags": [
+        "sound design",
+        "impact",
+        "cinematic",
+        "generator"
+      ]
+    },
+    {
+      "id": "noisy-live-recording",
+      "title": "Noisy Live Recording Repair",
+      "symptoms": [
+        "live recording has hiss or crowd noise",
+        "performance is useful but technically rough",
+        "noise reduction makes the track watery"
+      ],
+      "causes": [
+        "constant broadband noise below the music",
+        "automatic repair is too aggressive",
+        "room reflections and audience noise overlap the source"
+      ],
+      "fixes": [
+        "use gentle denoise and accept a small amount of natural noise",
+        "repair clicks and hum separately before broad noise reduction",
+        "use EQ to reduce masking bands instead of trying to remove every artifact"
+      ],
+      "tools": [
+        "denoise",
+        "de-click",
+        "hum notch",
+        "EQ",
+        "soft limiter"
+      ],
+      "tags": [
+        "repair",
+        "live",
+        "noise",
+        "restoration",
+        "free"
+      ]
+    },
+    {
+      "id": "mastering-streaming-loudness",
+      "title": "Streaming Mastering Loudness",
+      "symptoms": [
+        "master is loud but fatiguing",
+        "streaming playback sounds quieter than expected",
+        "limiter pumps on chorus"
+      ],
+      "causes": [
+        "too much limiter gain reduction",
+        "low-end peaks trigger the limiter",
+        "loudness target ignores genre and platform context"
+      ],
+      "fixes": [
+        "control sub peaks before the final limiter",
+        "aim for a balanced integrated loudness and keep true peak headroom",
+        "compare against a loudness-matched reference instead of chasing maximum level"
+      ],
+      "tools": [
+        "limiter",
+        "clipper",
+        "LUFS meter",
+        "true peak meter",
+        "reference matcher"
+      ],
+      "tags": [
+        "mastering",
+        "streaming",
+        "loudness",
+        "spotify",
+        "youtube"
+      ]
+    },
+    {
+      "id": "sample-search-timbre",
+      "title": "Semantic Sample Search By Timbre",
+      "symptoms": [
+        "sample library search by filename is slow",
+        "snare is the right genre but wrong texture",
+        "impact sample has the wrong energy"
+      ],
+      "causes": [
+        "filenames do not describe brightness, decay, punch, or mood",
+        "tempo and key metadata miss timbre",
+        "sample choice is made before the mix context is known"
+      ],
+      "fixes": [
+        "tag samples by brightness, decay, punch, noise, tone, and energy",
+        "rank results by requested mood and measured spectral features",
+        "preview samples loudness-matched to avoid choosing only the loudest file"
+      ],
+      "tools": [
+        "spectral centroid",
+        "decay analysis",
+        "energy tags",
+        "semantic search"
+      ],
+      "tags": [
+        "sample search",
+        "timbre",
+        "semantic",
+        "library"
+      ]
+    }
+  ]
+}

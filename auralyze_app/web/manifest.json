@@ -1,0 +1,12 @@
+{
+  "name": "Auralyze",
+  "short_name": "Auralyze",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f7f5ef",
+  "theme_color": "#0b7a75",
+  "description": "AI audio diagnosis copilot",
+  "orientation": "any",
+  "prefer_related_applications": false,
+  "icons": []
+}

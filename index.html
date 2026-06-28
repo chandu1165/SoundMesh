@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralyze - AI Audio Diagnosis Copilot</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">AI audio diagnosis copilot</p>
+          <h1>Auralyze</h1>
+        </div>
+        <div class="topbar-actions">
+          <select id="contentType" aria-label="Content type">
+            <option value="music">Music mix</option>
+            <option value="voice">Podcast / voice</option>
+            <option value="film">Film / video</option>
+            <option value="general">General audio</option>
+          </select>
+          <select id="releaseTarget" aria-label="Release target">
+            <option value="balanced">Balanced target</option>
+            <option value="streaming">Streaming</option>
+            <option value="youtube">YouTube</option>
+            <option value="club">Club</option>
+            <option value="cinema">Cinema</option>
+            <option value="podcast">Podcast</option>
+          </select>
+          <button id="exportWav" disabled>Export enhanced WAV</button>
+          <button id="exportHtml" class="ghost-button" disabled>Export HTML report</button>
+          <button id="exportReport" class="ghost-button" disabled>Export report</button>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="left-rail">
+          <label class="upload-panel" for="audioFile">
+            <span class="upload-title">Drop in audio</span>
+            <span class="upload-copy">Use one finished mix or multiple stems named vocal, kick, bass, drums, guitar, keys, or music.</span>
+            <span class="upload-cta">Choose files</span>
+            <input id="audioFile" type="file" accept="audio/*" multiple />
+          </label>
+
+          <label class="reference-panel" for="referenceFile">
+            <span class="panel-kicker">Reference match</span>
+            <span class="reference-title">Compare against a target track</span>
+            <span class="reference-copy">Use a mastered song or clean podcast to reveal tonal and loudness gaps.</span>
+            <span class="upload-cta secondary">Add reference</span>
+            <input id="referenceFile" type="file" accept="audio/*" />
+          </label>
+
+          <div class="project-panel">
+            <div>
+              <p class="panel-kicker">Projects</p>
+              <h2>Session memory</h2>
+            </div>
+            <input id="projectName" type="text" placeholder="Project name" />
+            <div class="project-actions">
+              <button id="saveProject" disabled>Save</button>
+              <button id="deleteProject" class="ghost-button" disabled>Delete</button>
+            </div>
+            <div class="project-actions">
+              <button id="exportProject" class="ghost-button" disabled>Export project</button>
+              <label class="small-file-button" for="projectImport">Import</label>
+              <input id="projectImport" type="file" accept=".json,application/json" />
+            </div>
+            <select id="projectLibrary" aria-label="Saved projects">
+              <option value="">No saved projects</option>
+            </select>
+          </div>
+
+          <div class="transport-panel">
+            <div>
+              <p class="panel-kicker">Preview</p>
+              <h2 id="fileName">No file loaded</h2>
+            </div>
+            <div class="transport-row">
+              <button id="playOriginal" disabled>Play original</button>
+              <button id="playEnhanced" disabled>Play enhanced</button>
+              <button id="stopPlayback" class="ghost-button" disabled>Stop</button>
+            </div>
+            <div class="mode-strip" role="group" aria-label="Playback mode">
+              <span id="activeMode">Waiting for audio</span>
+            </div>
+          </div>
+
+          <div class="metrics-panel">
+            <p class="panel-kicker">Signal metrics</p>
+            <dl id="metricList" class="metric-list">
+              <div>
+                <dt>Peak</dt>
+                <dd>-</dd>
+              </div>
+              <div>
+                <dt>True peak</dt>
+                <dd>-</dd>
+              </div>
+              <div>
+                <dt>Loudness</dt>
+                <dd>-</dd>
+              </div>
+              <div>
+                <dt>Noise floor</dt>
+                <dd>-</dd>
+              </div>
+              <div>
+                <dt>Dynamics</dt>
+                <dd>-</dd>
+              </div>
+              <div>
+                <dt>Stereo</dt>
+                <dd>-</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="stem-panel">
+            <div class="section-head compact-head">
+              <div>
+                <p class="panel-kicker">Stem intelligence</p>
+                <h2>Track roles</h2>
+              </div>
+              <span id="stemCount" class="count-badge">0 stems</span>
+            </div>
+            <div id="stemList" class="stem-list">
+              <p class="empty-note">Upload multiple stems to detect masking and balance issues.</p>
+            </div>
+          </div>
+        </aside>
+
+        <section class="main-stage">
+          <div class="visual-band">
+            <div class="visual-head">
+              <div>
+                <p class="panel-kicker">Evidence</p>
+                <h2>Waveform and spectrum</h2>
+              </div>
+              <span id="analysisStatus" class="status-pill">Ready</span>
+            </div>
+            <canvas id="waveformCanvas" width="1200" height="260" aria-label="Waveform visualization"></canvas>
+            <canvas id="spectrumCanvas" width="1200" height="220" aria-label="Frequency spectrum visualization"></canvas>
+          </div>
+
+          <section class="timeline-panel">
+            <div class="section-head">
+              <div>
+                <p class="panel-kicker">Timeline triage</p>
+                <h2>Problem moments</h2>
+              </div>
+              <span id="markerCount" class="count-badge">0 markers</span>
+            </div>
+            <div id="timelineList" class="timeline-list">
+              <p class="empty-note">Upload audio to locate clipping, loudness jumps, harsh moments, and quiet gaps over time.</p>
+            </div>
+          </section>
+
+          <section class="masking-panel">
+            <div class="section-head">
+              <div>
+                <p class="panel-kicker">Stem conflicts</p>
+                <h2>Masking map</h2>
+              </div>
+              <span id="conflictCount" class="count-badge">0 conflicts</span>
+            </div>
+            <div id="maskingList" class="masking-list">
+              <p class="empty-note">Add stems to reveal frequency collisions between parts.</p>
+            </div>
+          </section>
+
+          <div class="copilot-grid">
+            <section class="diagnosis-panel">
+              <div class="section-head">
+                <div>
+                  <p class="panel-kicker">Copilot diagnosis</p>
+                  <h2>What sounds wrong?</h2>
+                </div>
+                <span id="issueCount" class="count-badge">0 issues</span>
+              </div>
+              <div id="summary" class="summary-text">
+                Upload an audio file to get a plain-English diagnosis with measurable evidence.
+              </div>
+              <div id="issueList" class="issue-list"></div>
+            </section>
+
+          <section class="fix-panel">
+              <div class="section-head">
+                <div>
+                  <p class="panel-kicker">Suggested processing</p>
+                  <h2>Enhanced preview chain</h2>
+                </div>
+              </div>
+              <div id="fixChain" class="fix-chain">
+                <p>No processing chain yet.</p>
+              </div>
+              <div class="preset-actions">
+                <button id="copyPreset" class="ghost-button" disabled>Copy chain</button>
+                <button id="resetSession" class="ghost-button" disabled>Reset</button>
+              </div>
+              <div class="hint-box">
+                <strong>Build path:</strong>
+                This prototype uses deterministic DSP rules. The next layer is an LLM/RAG explanation engine, then DAW/plugin automation.
+              </div>
+            </section>
+          </div>
+
+          <section class="copilot-panel">
+            <div class="section-head">
+              <div>
+                <p class="panel-kicker">Ask Auralyze</p>
+                <h2>Production copilot</h2>
+              </div>
+            </div>
+            <div class="prompt-row">
+              <input id="copilotQuestion" type="text" placeholder="Ask why it sounds muddy, how to fix vocals, or what to do first" />
+              <button id="askCopilot" disabled>Ask</button>
+            </div>
+            <div id="copilotAnswer" class="copilot-answer">
+              Load audio, then ask the copilot for a prioritized fix plan.
+            </div>
+          </section>
+
+          <section class="plugin-panel">
+            <div class="section-head">
+              <div>
+                <p class="panel-kicker">Plugin copilot</p>
+                <h2>Recommended tools</h2>
+              </div>
+            </div>
+            <div id="pluginList" class="plugin-list">
+              <p class="empty-note">Recommendations appear after analysis.</p>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

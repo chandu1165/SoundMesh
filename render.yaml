@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: auralyze
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: AI_PROVIDER
+        value: local-rules
+      - key: AURALYZE_STORAGE
+        value: sqlite
+      - key: AURALYZE_WEB_DIR
+        value: /app/web

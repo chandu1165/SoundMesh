@@ -1,0 +1,17 @@
+backend/data/
+dist/
+.env
+
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite3
+
+auralyze_app/.dart_tool/
+auralyze_app/.flutter-plugins
+auralyze_app/.flutter-plugins-dependencies
+auralyze_app/.pub/
+auralyze_app/build/
+auralyze_app/coverage/
+
+.pytest_cache/

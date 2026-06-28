@@ -1,0 +1,42 @@
+name: Auralyze CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      AI_PROVIDER: local-rules
+      AURALYZE_STORAGE: sqlite
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Check backend Python
+        run: |
+          python -m py_compile backend/server.py backend/okf_mcp_server.py scripts/check_okf.py scripts/check_okf_mcp.py scripts/check_local_ai.py scripts/check_storage.py
+          python scripts/check_okf.py
+          python scripts/check_okf_mcp.py
+          python scripts/check_storage.py
+
+      - name: Check Flutter app
+        working-directory: auralyze_app
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+          dart run tool/analysis_smoke.dart
+          flutter build web --release
