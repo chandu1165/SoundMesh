@@ -2,7 +2,10 @@ services:
   - type: web
     name: auralyze
     runtime: docker
+    plan: free
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
     envVars:
       - key: AI_PROVIDER
         value: local-rules

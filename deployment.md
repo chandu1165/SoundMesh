@@ -66,9 +66,12 @@ runtime: docker
 dockerfilePath: ./Dockerfile
 AI_PROVIDER=local-rules
 AURALYZE_STORAGE=sqlite
+plan=free
 ```
 
 This gives you a public demo with the Flutter UI, OKF/RAG copilot fallback, project APIs, FFmpeg-backed format support, reports, exports, and free SQLite storage. Free web hosts may use ephemeral disks, so use `/api/storage/export` before rebuilding if you need to keep demo data. Ollama/Demucs should be self-hosted or moved to a bigger worker later.
+
+Render deployment uses `plan: free` in `render.yaml`. Render's own docs say web services can run on Free instances, and its Blueprint reference says omitting `plan` makes a new service use `starter`, so keep `plan: free` in place for no-cost deployment.
 
 ## Local Product Package
 
