@@ -343,4 +343,6 @@ The repo includes a single-container deployment path:
 
 The container builds Flutter web and serves both the app and backend from one port. Public demo deployments default to `AI_PROVIDER=local-rules`; use your own PC/VPS if you want hosted Ollama + Demucs.
 
+The repo also includes a free GitHub Pages workflow at `.github/workflows/pages.yml`. It publishes the Flutter web demo from `main`; backend-only features will show offline until you connect a hosted backend URL through the `AURALYZE_BACKEND_URL` repository variable.
+
 Free repository checks are available in `.github/workflows/ci.yml`; it runs backend checks, OKF/MCP smoke tests, storage checks, Flutter analyze/tests, and a web build.
