@@ -53,6 +53,18 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
     'AURALYZE_BACKEND_URL',
     defaultValue: 'http://127.0.0.1:8788',
   );
+  static const String authMode = String.fromEnvironment(
+    'AURALYZE_AUTH_MODE',
+    defaultValue: 'local',
+  );
+  static const String firebaseApiKey = String.fromEnvironment(
+    'AURALYZE_FIREBASE_API_KEY',
+    defaultValue: '',
+  );
+  static const String firebaseProjectId = String.fromEnvironment(
+    'AURALYZE_FIREBASE_PROJECT_ID',
+    defaultValue: '',
+  );
   final engine.AuralyzeAnalyzer analyzer = engine.AuralyzeAnalyzer();
   final PromptSoundGenerator soundGenerator = PromptSoundGenerator();
   final AudioPlayer previewPlayer = AudioPlayer(playerId: 'auralyze-preview');
@@ -80,6 +92,9 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
   String billingStatus = 'Not checked';
   String storageStatus = 'Not checked';
   String accountStatus = 'Not signed in';
+  String? authToken;
+  String signedInEmail = '';
+  String signedInProvider = 'local';
   String cloudProjectStatus = 'Cloud projects not loaded';
   List<CloudProject> cloudProjects = [];
   String copilotAnswer =
@@ -111,6 +126,8 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
   final TextEditingController accountEmailController = TextEditingController(
     text: 'local@auralyze.dev',
   );
+  final TextEditingController accountPasswordController =
+      TextEditingController();
 
   List<Diagnosis> get issues =>
       report.issues.map(Diagnosis.fromEngine).toList();
@@ -124,6 +141,22 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
   List<engine.RepairAction> get repairActions =>
       analyzer.buildRepairActions(report);
   List<SampleMatch> get sampleMatches => _sampleMatches(sampleQuery);
+  bool get hostedLoginConfigured =>
+      authMode.trim().toLowerCase() == 'firebase' &&
+      firebaseApiKey.trim().isNotEmpty;
+  bool get hostedBackendConfigured => firebaseProjectId.trim().isNotEmpty;
+  bool get hasSignedInAccount => signedInEmail.isNotEmpty;
+
+  Map<String, String> requestHeaders({bool json = false, bool auth = false}) {
+    final headers = <String, String>{};
+    if (json) {
+      headers['content-type'] = 'application/json';
+    }
+    if (auth && authToken != null && authToken!.isNotEmpty) {
+      headers['authorization'] = 'Bearer $authToken';
+    }
+    return headers;
+  }
 
   @override
   void initState() {
@@ -207,6 +240,7 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
     knowledgeTextController.dispose();
     sampleSearchController.dispose();
     accountEmailController.dispose();
+    accountPasswordController.dispose();
     super.dispose();
   }
 
@@ -760,6 +794,141 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
     }
   }
 
+  Future<void> loginAccount() async {
+    if (hostedLoginConfigured) {
+      await signInFirebase(create: false);
+      return;
+    }
+    await loginLocalAccount();
+  }
+
+  Future<void> createHostedAccount() async {
+    if (!hostedLoginConfigured) {
+      setState(() {
+        accountStatus = 'Hosted login is not configured yet';
+        statusMessage = 'Add Firebase build variables to enable accounts';
+      });
+      return;
+    }
+    await signInFirebase(create: true);
+  }
+
+  Uri firebaseAuthUri(String action) {
+    return Uri.parse(
+      'https://identitytoolkit.googleapis.com/v1/accounts:$action'
+      '?key=${Uri.encodeQueryComponent(firebaseApiKey.trim())}',
+    );
+  }
+
+  String firebaseErrorMessage(http.Response response) {
+    try {
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final error = payload['error'] as Map<String, dynamic>?;
+      final message = error?['message'] as String?;
+      if (message != null && message.isNotEmpty) {
+        return message.replaceAll('_', ' ').toLowerCase();
+      }
+    } catch (_) {
+      // Keep the HTTP status fallback below.
+    }
+    return 'HTTP ${response.statusCode}';
+  }
+
+  Future<void> signInFirebase({required bool create}) async {
+    final email = accountEmailController.text.trim();
+    final password = accountPasswordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        accountStatus = 'Enter email and password';
+        statusMessage = 'Login details missing';
+      });
+      return;
+    }
+    setState(() {
+      accountStatus = create ? 'Creating account...' : 'Signing in...';
+      statusMessage = create ? 'Creating Firebase account' : 'Signing in';
+    });
+    try {
+      final response = await http
+          .post(
+            firebaseAuthUri(create ? 'signUp' : 'signInWithPassword'),
+            headers: requestHeaders(json: true),
+            body: jsonEncode({
+              'email': email,
+              'password': password,
+              'returnSecureToken': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError(firebaseErrorMessage(response));
+      }
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final token = payload['idToken'] as String? ?? '';
+      if (token.isEmpty) {
+        throw StateError('Firebase did not return an ID token');
+      }
+      final accountEmail = payload['email'] as String? ?? email;
+      setState(() {
+        authToken = token;
+        signedInEmail = accountEmail;
+        signedInProvider = 'firebase';
+        accountStatus = 'Signed in as $accountEmail (firebase)';
+        statusMessage = create ? 'Account created' : 'Signed in';
+      });
+      await verifyHostedSession();
+      await refreshCloudProjects();
+    } catch (error) {
+      setState(() {
+        accountStatus = create ? 'Account creation failed' : 'Sign-in failed';
+        statusMessage = 'Firebase login failed: $error';
+      });
+    }
+  }
+
+  Future<void> verifyHostedSession() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$backendBaseUrl/api/auth/me'),
+            headers: requestHeaders(auth: true),
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final payload = jsonDecode(response.body) as Map<String, dynamic>;
+        final user = payload['user'] as Map<String, dynamic>? ?? {};
+        final provider = user['provider'] as String? ?? signedInProvider;
+        if (provider != 'local') {
+          setState(() => authStatus = '$provider session verified');
+        }
+      } else {
+        setState(
+          () => authStatus = hostedBackendConfigured
+              ? 'Backend auth pending'
+              : 'Firebase project ID missing',
+        );
+      }
+    } catch (_) {
+      setState(
+        () => authStatus = hostedBackendConfigured
+            ? 'Backend auth pending'
+            : 'Firebase project ID missing',
+      );
+    }
+  }
+
+  void logoutAccount() {
+    setState(() {
+      authToken = null;
+      signedInEmail = '';
+      signedInProvider = 'local';
+      accountStatus = 'Not signed in';
+      cloudProjects = [];
+      cloudProjectStatus = 'Cloud projects not loaded';
+      statusMessage = 'Signed out';
+    });
+  }
+
   Future<void> loginLocalAccount() async {
     final email = accountEmailController.text.trim().isEmpty
         ? 'local@auralyze.dev'
@@ -772,7 +941,7 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       final response = await http
           .post(
             Uri.parse('$backendBaseUrl/api/accounts/local-login'),
-            headers: {'content-type': 'application/json'},
+            headers: requestHeaders(json: true),
             body: jsonEncode({'email': email}),
           )
           .timeout(const Duration(seconds: 10));
@@ -782,6 +951,9 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       final payload = jsonDecode(response.body) as Map<String, dynamic>;
       final account = payload['account'] as Map<String, dynamic>? ?? {};
       setState(() {
+        authToken = payload['token'] as String?;
+        signedInEmail = account['email'] as String? ?? email;
+        signedInProvider = 'local';
         accountStatus =
             'Signed in as ${account['email'] ?? email} (${account['plan'] ?? 'local'})';
         statusMessage = 'Local account ready';
@@ -807,7 +979,7 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       final response = await http
           .post(
             Uri.parse('$backendBaseUrl/api/billing/checkout'),
-            headers: {'content-type': 'application/json'},
+            headers: requestHeaders(json: true),
             body: jsonEncode({'email': email, 'plan': plan}),
           )
           .timeout(const Duration(seconds: 10));
@@ -835,7 +1007,10 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
     setState(() => cloudProjectStatus = 'Loading projects...');
     try {
       final response = await http
-          .get(Uri.parse('$backendBaseUrl/api/projects'))
+          .get(
+            Uri.parse('$backendBaseUrl/api/projects'),
+            headers: requestHeaders(auth: true),
+          )
           .timeout(const Duration(seconds: 10));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw StateError('HTTP ${response.statusCode}: ${response.body}');
@@ -869,10 +1044,12 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       final response = await http
           .post(
             Uri.parse('$backendBaseUrl/api/projects'),
-            headers: {'content-type': 'application/json'},
+            headers: requestHeaders(json: true, auth: true),
             body: jsonEncode({
               'name': projectName,
-              'email': accountEmailController.text.trim(),
+              'email': signedInEmail.isEmpty
+                  ? accountEmailController.text.trim()
+                  : signedInEmail,
               'releaseTarget': report.releaseTarget,
               'report': reportJson,
             }),
@@ -901,7 +1078,10 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
     });
     try {
       final response = await http
-          .get(Uri.parse('$backendBaseUrl/api/projects/$id'))
+          .get(
+            Uri.parse('$backendBaseUrl/api/projects/$id'),
+            headers: requestHeaders(auth: true),
+          )
           .timeout(const Duration(seconds: 10));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw StateError('HTTP ${response.statusCode}: ${response.body}');
@@ -934,7 +1114,10 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
     setState(() => cloudProjectStatus = 'Deleting project...');
     try {
       final response = await http
-          .delete(Uri.parse('$backendBaseUrl/api/projects/$id'))
+          .delete(
+            Uri.parse('$backendBaseUrl/api/projects/$id'),
+            headers: requestHeaders(auth: true),
+          )
           .timeout(const Duration(seconds: 10));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw StateError('HTTP ${response.statusCode}: ${response.body}');
@@ -1158,7 +1341,7 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       final response = await http
           .post(
             Uri.parse('$backendBaseUrl/api/knowledge/documents'),
-            headers: {'content-type': 'application/json'},
+            headers: requestHeaders(json: true, auth: true),
             body: jsonEncode({
               'title': title,
               'tags': knowledgeTagsController.text,
@@ -1571,24 +1754,58 @@ class _LeftRail extends StatelessWidget {
                   border: OutlineInputBorder(),
                 ),
               ),
+              if (state.hostedLoginConfigured) ...[
+                const SizedBox(height: 10),
+                TextField(
+                  controller: state.accountPasswordController,
+                  obscureText: true,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
                     child: FilledButton(
-                      onPressed: state.loginLocalAccount,
-                      child: const Text('Sign in'),
+                      onPressed: state.loginAccount,
+                      child: Text(
+                        state.hostedLoginConfigured
+                            ? 'Sign in'
+                            : 'Demo sign in',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => state.activateLocalPlan('pro'),
-                      child: const Text('Activate Local Pro'),
+                      onPressed: state.hostedLoginConfigured
+                          ? state.createHostedAccount
+                          : () => state.activateLocalPlan('pro'),
+                      child: Text(
+                        state.hostedLoginConfigured
+                            ? 'Create account'
+                            : 'Activate Local Pro',
+                      ),
                     ),
                   ),
                 ],
               ),
+              if (state.hasSignedInAccount) ...[
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: state.logoutAccount,
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Sign out'),
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               Text(
                 state.accountStatus,

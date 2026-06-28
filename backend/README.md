@@ -121,19 +121,21 @@ The Postgres adapter is compatible with Neon and Supabase free Postgres URLs.
 
 ## Free Hosted Auth
 
-Local demo auth stays enabled by default. To verify hosted JWTs, install `requirements.txt` and set Clerk or Firebase environment variables:
+Local demo auth stays enabled by default. To verify hosted JWTs, install `requirements.txt` and set Clerk or Firebase environment variables.
 
-```text
-AURALYZE_AUTH_PROVIDER=clerk
-CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
-AURALYZE_REQUIRE_AUTH=true
-```
-
-or:
+Firebase Email/Password login uses Firebase on the Flutter side and Firebase JWT verification on this backend:
 
 ```text
 AURALYZE_AUTH_PROVIDER=firebase
 FIREBASE_PROJECT_ID=your-firebase-project-id
+AURALYZE_REQUIRE_AUTH=true
+```
+
+For Clerk instead:
+
+```text
+AURALYZE_AUTH_PROVIDER=clerk
+CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
 AURALYZE_REQUIRE_AUTH=true
 ```
 

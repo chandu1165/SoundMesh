@@ -129,6 +129,14 @@ Then upload `auralyze_app\build\web`.
 
 For single-container Docker deployment, leave `AURALYZE_BACKEND_URL` empty so the app uses same-origin `/api/...`.
 
+If you enable Firebase login on a static frontend build, pass these build variables too:
+
+```cmd
+set AURALYZE_AUTH_MODE=firebase
+set AURALYZE_FIREBASE_API_KEY=your-firebase-web-api-key
+set AURALYZE_FIREBASE_PROJECT_ID=your-firebase-project-id
+```
+
 ## Production Notes
 
 The backend supports free JSON or SQLite persistence. On free cloud hosts, local disk may be reset during redeploys, so use `/api/storage/export` for backup or move only long-term shared/team data to a managed database later.
@@ -140,19 +148,19 @@ AURALYZE_STORAGE=postgres
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 ```
 
-For free hosted identity, use Clerk or Firebase:
-
-```text
-AURALYZE_AUTH_PROVIDER=clerk
-CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
-AURALYZE_REQUIRE_AUTH=true
-```
-
-or:
+For free hosted identity, use Clerk or Firebase. Firebase Email/Password is the easiest free path for this app: enable Email/Password in Firebase Authentication, copy the Web API key into the frontend build variables above, and set the backend variables below on Render:
 
 ```text
 AURALYZE_AUTH_PROVIDER=firebase
 FIREBASE_PROJECT_ID=your-firebase-project-id
+AURALYZE_REQUIRE_AUTH=true
+```
+
+For Clerk instead:
+
+```text
+AURALYZE_AUTH_PROVIDER=clerk
+CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
 AURALYZE_REQUIRE_AUTH=true
 ```
 

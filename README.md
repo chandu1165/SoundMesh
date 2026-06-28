@@ -153,19 +153,39 @@ The backend stores projects, accounts, and custom knowledge in the same `app_sta
 
 ## Free Hosted Auth
 
-The live demo uses local demo auth by default so visitors can try it immediately. For real hosted identity, create a free Clerk or Firebase project and set:
+The live demo uses local demo auth by default so visitors can try it immediately. The app also has a real Firebase Email/Password login path that stays free on Firebase Spark for a student/demo project.
+
+To enable Firebase login:
+
+1. Create a Firebase project.
+2. Go to **Authentication > Sign-in method** and enable **Email/Password**.
+3. Copy the **Web API key** and **Project ID** from Firebase project settings.
+4. In GitHub repo **Settings > Secrets and variables > Actions > Variables**, add:
 
 ```text
-AURALYZE_AUTH_PROVIDER=clerk
-CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
-AURALYZE_REQUIRE_AUTH=true
+AURALYZE_AUTH_MODE=firebase
+AURALYZE_FIREBASE_API_KEY=your-firebase-web-api-key
+AURALYZE_FIREBASE_PROJECT_ID=your-firebase-project-id
 ```
 
-or:
+5. In Render environment variables, add:
 
 ```text
 AURALYZE_AUTH_PROVIDER=firebase
 FIREBASE_PROJECT_ID=your-firebase-project-id
+```
+
+6. Redeploy GitHub Pages and Render. After sign-in works, optionally set this in Render to protect project and knowledge routes:
+
+```text
+AURALYZE_REQUIRE_AUTH=true
+```
+
+For Clerk instead, create a free Clerk project and set:
+
+```text
+AURALYZE_AUTH_PROVIDER=clerk
+CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
 AURALYZE_REQUIRE_AUTH=true
 ```
 

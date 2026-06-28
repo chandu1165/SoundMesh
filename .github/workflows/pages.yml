@@ -20,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AURALYZE_BACKEND_URL: ${{ vars.AURALYZE_BACKEND_URL }}
+      AURALYZE_AUTH_MODE: ${{ vars.AURALYZE_AUTH_MODE }}
+      AURALYZE_FIREBASE_API_KEY: ${{ vars.AURALYZE_FIREBASE_API_KEY }}
+      AURALYZE_FIREBASE_PROJECT_ID: ${{ vars.AURALYZE_FIREBASE_PROJECT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,7 +37,11 @@ jobs:
         working-directory: auralyze_app
         run: |
           flutter pub get
-          flutter build web --release --base-href /SoundMesh/ --dart-define=AURALYZE_BACKEND_URL="${AURALYZE_BACKEND_URL}"
+          flutter build web --release --base-href /SoundMesh/ \
+            --dart-define=AURALYZE_BACKEND_URL="${AURALYZE_BACKEND_URL}" \
+            --dart-define=AURALYZE_AUTH_MODE="${AURALYZE_AUTH_MODE}" \
+            --dart-define=AURALYZE_FIREBASE_API_KEY="${AURALYZE_FIREBASE_API_KEY}" \
+            --dart-define=AURALYZE_FIREBASE_PROJECT_ID="${AURALYZE_FIREBASE_PROJECT_ID}"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
