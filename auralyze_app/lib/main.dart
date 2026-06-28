@@ -294,7 +294,9 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       if (bytes == null) {
         throw WavDecodeException('Could not read ${file.name}.');
       }
-      setState(() => statusMessage = 'Separating ${file.name} with Demucs...');
+      setState(
+        () => statusMessage = 'Separating ${file.name} with backend engine...',
+      );
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$backendBaseUrl/api/stem-separation/separate'),
@@ -310,6 +312,8 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
         throw StateError('${response.statusCode}: ${response.body}');
       }
       final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final engineName = payload['engine'] as String? ?? 'backend engine';
+      final fallback = payload['fallback'] == true;
       final rawStems = payload['stems'] as List<dynamic>? ?? [];
       final separated = <engine.ImportedAudio>[];
       for (final item in rawStems.whereType<Map<String, dynamic>>()) {
@@ -339,16 +343,18 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
         separatingStems = false;
         analyzed = true;
         previewMode = 'Enhanced';
-        statusMessage = 'Separated and analyzed ${separated.length} stems';
-        copilotAnswer =
-            'Stem separation complete. Ask about vocal masking, drum/bass balance, or what to fix first.';
+        statusMessage =
+            '${fallback ? 'Approximate' : 'Separated'} and analyzed ${separated.length} stems with $engineName';
+        copilotAnswer = fallback
+            ? 'Free hosted stem fallback complete. These are approximate frequency-shaped stems, useful for diagnosis but less clean than Demucs.'
+            : 'Stem separation complete. Ask about vocal masking, drum/bass balance, or what to fix first.';
       });
     } catch (error) {
       setState(() {
         separatingStems = false;
         statusMessage = 'Stem separation failed: $error';
         copilotAnswer =
-            'Stem separation needs Demucs and FFmpeg on the backend. Check System status, then run the setup scripts and restart the product.';
+            'Stem separation needs either Demucs or the free FFmpeg fallback on the backend. Check System status, then restart the product if setup changed.';
       });
     }
   }
@@ -626,11 +632,16 @@ class _AuralyzeHomeState extends State<AuralyzeHome> {
       if (separation.statusCode == 200) {
         final payload = jsonDecode(separation.body) as Map<String, dynamic>;
         if (payload['available'] == true) {
-          nextSeparationStatus = payload['ffmpegAvailable'] == true
-              ? 'Demucs ready'
-              : 'Demucs ready - WAV only';
+          final mode = payload['mode'] as String? ?? 'demucs';
+          if (mode == 'ffmpeg-fallback') {
+            nextSeparationStatus = 'FFmpeg fallback ready';
+          } else {
+            nextSeparationStatus = payload['ffmpegAvailable'] == true
+                ? 'Demucs ready'
+                : 'Demucs ready - WAV only';
+          }
         } else {
-          nextSeparationStatus = 'Install Demucs';
+          nextSeparationStatus = 'Install FFmpeg or Demucs';
         }
       } else {
         nextSeparationStatus = 'HTTP ${separation.statusCode}';
@@ -1482,7 +1493,7 @@ class _LeftRail extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Uses backend Demucs separation when installed.',
+                'Uses Demucs when installed, otherwise a free FFmpeg spectral fallback on hosted demos.',
                 style: TextStyle(color: Color(0xFF65706E)),
               ),
             ],
@@ -2394,7 +2405,7 @@ class _IntegrationPanel extends StatelessWidget {
           ),
           _InfoRow(
             'Stem separation',
-            'Demucs separates songs into vocals, drums, bass, and other when installed.',
+            'Demucs separates songs when installed; hosted demos use a free FFmpeg spectral fallback.',
           ),
           _InfoRow(
             'Formats',

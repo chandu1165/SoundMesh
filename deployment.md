@@ -8,6 +8,7 @@ The easiest public deployment is the **single-container web app**:
 - The Python backend serves both the static app and `/api/...` routes.
 - The app uses same-origin API calls, so no public backend URL has to be hard-coded.
 - The deployed container defaults to `AI_PROVIDER=local-rules` because free cloud containers usually do not have enough memory/storage for Ollama and Demucs.
+- Public free deploys use an FFmpeg spectral stem fallback when Demucs is not installed.
 
 Use this for demos, submissions, and portfolio links.
 
@@ -46,6 +47,7 @@ Default Docker environment:
 AI_PROVIDER=local-rules
 AURALYZE_WEB_DIR=/app/web
 AURALYZE_STORAGE=sqlite
+AURALYZE_FALLBACK_MAX_SECONDS=180
 PORT=8080
 ```
 
@@ -69,7 +71,7 @@ AURALYZE_STORAGE=sqlite
 plan=free
 ```
 
-This gives you a public demo with the Flutter UI, OKF/RAG copilot fallback, project APIs, FFmpeg-backed format support, reports, exports, and free SQLite storage. Free web hosts may use ephemeral disks, so use `/api/storage/export` before rebuilding if you need to keep demo data. Ollama/Demucs should be self-hosted or moved to a bigger worker later.
+This gives you a public demo with the Flutter UI, OKF/RAG copilot fallback, project APIs, FFmpeg-backed format support, FFmpeg stem fallback, reports, exports, and free SQLite storage. Free web hosts may use ephemeral disks, so use `/api/storage/export` before rebuilding if you need to keep demo data. Ollama/Demucs should be self-hosted or moved to a bigger worker later.
 
 Render deployment uses `plan: free` in `render.yaml`. Render's own docs say web services can run on Free instances, and its Blueprint reference says omitting `plan` makes a new service use `starter`, so keep `plan: free` in place for no-cost deployment.
 
@@ -105,6 +107,7 @@ FFMPEG_PATH=...
 DEMUCS_COMMAND=python -m demucs
 DEMUCS_MODEL=htdemucs
 AURALYZE_STORAGE=sqlite
+AURALYZE_FALLBACK_MAX_SECONDS=180
 ```
 
 If Ollama is not installed, Auralyze still uses local DSP/OKF rules. Optional commercial providers such as hosted LLMs or checkout can be added later, but they are not required for this project.
@@ -130,4 +133,4 @@ For single-container Docker deployment, leave `AURALYZE_BACKEND_URL` empty so th
 
 The backend supports free JSON or SQLite persistence. On free cloud hosts, local disk may be reset during redeploys, so use `/api/storage/export` for backup or move only long-term shared/team data to a managed database later.
 
-Demucs is CPU-heavy. For hosted separation, run it on a worker machine or queue service rather than inside the web request process.
+Demucs is CPU-heavy. The deployed free backend uses an approximate FFmpeg fallback. For clean hosted source separation, run Demucs on a worker machine or queue service rather than inside the web request process.

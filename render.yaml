@@ -13,3 +13,5 @@ services:
         value: sqlite
       - key: AURALYZE_WEB_DIR
         value: /app/web
+      - key: AURALYZE_FALLBACK_MAX_SECONDS
+        value: "180"

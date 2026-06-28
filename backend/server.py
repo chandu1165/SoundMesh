@@ -129,7 +129,10 @@ def can_run_command(command: list[str]) -> bool:
 def demucs_command() -> list[str] | None:
     configured = os.environ.get("DEMUCS_COMMAND")
     if configured:
-        return configured.split()
+        command = configured.split()
+        if can_run_command([*command, "--help"]):
+            return command
+        return None
     found = shutil.which("demucs")
     if found:
         return [found]
@@ -198,17 +201,31 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/stem-separation/status":
             command = demucs_command()
             has_ffmpeg = ffmpeg_path() is not None
+            fallback_available = has_ffmpeg
+            engine = "Demucs" if command else "FFmpeg spectral fallback"
             self.send_json(
                 {
-                    "available": command is not None,
-                    "engine": "Demucs",
+                    "available": command is not None or fallback_available,
+                    "engine": engine if has_ffmpeg or command else "Unavailable",
+                    "mode": "demucs" if command else "ffmpeg-fallback"
+                    if fallback_available
+                    else "unavailable",
                     "command": " ".join(command) if command else None,
                     "ffmpegAvailable": has_ffmpeg,
+                    "fallbackAvailable": fallback_available,
+                    "fallbackEngine": "FFmpeg spectral fallback"
+                    if fallback_available
+                    else None,
+                    "quality": "pro-model" if command else "approximate-band-split"
+                    if fallback_available
+                    else "unavailable",
                     "supportedFormats": ["wav", "mp3", "m4a", "aac", "flac", "ogg"]
                     if has_ffmpeg
                     else ["wav"],
                     "expectedStems": ["vocals", "drums", "bass", "other"],
-                    "installHint": "Install Demucs for WAV separation. Install FFmpeg too for MP3/M4A/FLAC/OGG.",
+                    "installHint": "Demucs gives cleaner true source separation. FFmpeg fallback is available for free hosted demos."
+                    if fallback_available and command is None
+                    else "Install Demucs for best separation. Install FFmpeg too for MP3/M4A/FLAC/OGG.",
                 }
             )
             return
@@ -414,19 +431,17 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Route not found")
 
     def handle_stem_separation(self) -> None:
-        command = demucs_command()
-        if command is None:
-            self.send_json(
-                {
-                    "error": "Demucs is not installed or DEMUCS_COMMAND is not set.",
-                    "installHint": "Install Demucs with scripts\\install_separation.cmd, install FFmpeg, then restart the backend.",
-                },
-                status=503,
-            )
-            return
         try:
             filename, upload = self.read_multipart_file("file")
             suffix = Path(filename).suffix or ".audio"
+            command = demucs_command()
+            if command is None:
+                self.handle_ffmpeg_stem_fallback(
+                    filename,
+                    upload,
+                    "Demucs is not installed; used free FFmpeg spectral fallback.",
+                )
+                return
             if suffix.lower() != ".wav" and ffmpeg_path() is None:
                 self.send_json(
                     {
@@ -443,22 +458,41 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
                 output_root = tmp_path / "separated"
                 input_path.write_bytes(upload)
                 model = os.environ.get("DEMUCS_MODEL", "htdemucs")
-                result = subprocess.run(
-                    [
-                        *command,
-                        "-n",
-                        model,
-                        "--out",
-                        str(output_root),
-                        str(input_path),
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=900,
-                    check=False,
-                )
+                try:
+                    result = subprocess.run(
+                        [
+                            *command,
+                            "-n",
+                            model,
+                            "--out",
+                            str(output_root),
+                            str(input_path),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=900,
+                        check=False,
+                    )
+                except OSError as error:
+                    if ffmpeg_path() is not None:
+                        self.handle_ffmpeg_stem_fallback(
+                            filename,
+                            upload,
+                            "Demucs command could not start; used free FFmpeg spectral fallback.",
+                            detail=str(error),
+                        )
+                        return
+                    raise
                 stem_dir = output_root / model / safe_name
                 if result.returncode != 0 or not stem_dir.exists():
+                    if ffmpeg_path() is not None:
+                        self.handle_ffmpeg_stem_fallback(
+                            filename,
+                            upload,
+                            "Demucs failed; used free FFmpeg spectral fallback.",
+                            detail=(result.stderr or result.stdout)[-1200:],
+                        )
+                        return
                     self.send_json(
                         {
                             "error": "Demucs could not separate this file.",
@@ -508,6 +542,115 @@ class AuralyzeHandler(BaseHTTPRequestHandler):
             )
         except Exception as error:
             self.send_json({"error": f"Stem separation failed: {error}"}, status=400)
+
+    def handle_ffmpeg_stem_fallback(
+        self,
+        filename: str,
+        upload: bytes,
+        reason: str,
+        detail: str | None = None,
+    ) -> None:
+        path = ffmpeg_path()
+        if path is None:
+            self.send_json(
+                {
+                    "error": "Neither Demucs nor FFmpeg fallback is available.",
+                    "installHint": "Install FFmpeg for the free hosted fallback, or install Demucs for true source separation.",
+                },
+                status=503,
+            )
+            return
+        safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "_", Path(filename).stem) or "mix"
+        suffix = Path(filename).suffix or ".audio"
+        max_seconds = int(os.environ.get("AURALYZE_FALLBACK_MAX_SECONDS", "180"))
+        filters = [
+            (
+                "vocals",
+                "highpass=f=120,lowpass=f=6000,equalizer=f=250:t=q:w=1:g=-3,equalizer=f=3200:t=q:w=1:g=3",
+            ),
+            (
+                "drums",
+                "highpass=f=70,lowpass=f=10000,equalizer=f=120:t=q:w=1:g=2,equalizer=f=5000:t=q:w=1:g=4",
+            ),
+            ("bass", "lowpass=f=180,equalizer=f=75:t=q:w=1:g=5"),
+            (
+                "other",
+                "highpass=f=180,lowpass=f=12000,equalizer=f=3000:t=q:w=1:g=-2",
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            input_path = tmp_path / f"{safe_name}{suffix}"
+            input_path.write_bytes(upload)
+            stems = []
+            errors = []
+            for role, audio_filter in filters:
+                output_path = tmp_path / f"{safe_name}_{role}.wav"
+                command = [
+                    path,
+                    "-y",
+                    "-i",
+                    str(input_path),
+                    "-vn",
+                ]
+                if max_seconds > 0:
+                    command.extend(["-t", str(max_seconds)])
+                command.extend(
+                    [
+                        "-af",
+                        audio_filter,
+                        "-ac",
+                        "1",
+                        "-ar",
+                        "44100",
+                        "-acodec",
+                        "pcm_s16le",
+                        str(output_path),
+                    ]
+                )
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    timeout=max(120, min(360, max_seconds + 90)),
+                    check=False,
+                )
+                if result.returncode != 0 or not output_path.exists():
+                    errors.append(f"{role}: {(result.stderr or result.stdout)[-600:]}")
+                    continue
+                stems.append(
+                    {
+                        "name": f"{safe_name}_{role}.wav",
+                        "role": role,
+                        "format": "wav",
+                        "bytesBase64": base64.b64encode(output_path.read_bytes()).decode(
+                            "ascii"
+                        ),
+                    }
+                )
+            if not stems:
+                self.send_json(
+                    {
+                        "error": "FFmpeg fallback could not create stems.",
+                        "detail": "\n".join(errors)[-1800:],
+                    },
+                    status=422,
+                )
+                return
+            self.send_json(
+                {
+                    "source": filename,
+                    "engine": "FFmpeg spectral fallback",
+                    "model": "band-split-v1",
+                    "fallback": True,
+                    "approximate": True,
+                    "reason": reason,
+                    "detail": detail,
+                    "maxSeconds": max_seconds,
+                    "stems": stems,
+                    "note": "These are approximate frequency-shaped stems for free hosted demos, not neural source separation.",
+                }
+            )
 
     def handle_audio_transcode(self) -> None:
         path = ffmpeg_path()
@@ -1325,7 +1468,7 @@ def product_features() -> list[dict]:
         {"name": "Open-source copilot", "status": "ollama-or-local-rules-ready"},
         {"name": "OKF/RAG knowledge", "status": "structured-local-index-ready"},
         {"name": "Cloud projects", "status": "local-api-ready"},
-        {"name": "Stem separation", "status": "demucs-endpoint-ready"},
+        {"name": "Stem separation", "status": "demucs-or-ffmpeg-fallback-ready"},
         {"name": "Format transcode", "status": "ffmpeg-endpoint-ready"},
         {"name": "A/B preview", "status": "client-render-ready"},
         {"name": "Plugin presets", "status": "export-scaffold-ready"},

@@ -168,6 +168,12 @@ FFMPEG_PATH=C:\ffmpeg\bin\ffmpeg.exe
 
 The app's **System status** panel shows whether compressed-format upload is active.
 
+## Free Stem Fallback
+
+When Demucs is installed, `/api/stem-separation/separate` uses Demucs for true neural source separation. When Demucs is not installed but FFmpeg is available, the same route returns approximate frequency-shaped stems for vocals, drums, bass, and other. This keeps free hosted deployments useful without GPU-heavy dependencies.
+
+The fallback is not a replacement for Demucs quality. It is a practical demo/diagnosis path for Render Free and similar hosts.
+
 ## Notes
 
 This is a local backend foundation. Team sync, production auth, or optional commercial providers can be added behind this API surface instead of being hard-coded into the Flutter app.

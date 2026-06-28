@@ -6,7 +6,7 @@ Auralyze is an early prototype for an AI Audio Diagnosis Copilot: a browser-base
 
 - Local audio upload and browser-side decoding
 - Multi-stem upload with automatic role guesses from filename and spectral clues
-- Single-song source separation through the backend Demucs engine when installed
+- Single-song source separation through Demucs when installed, with a free FFmpeg spectral fallback for hosted demos
 - Waveform and spectrum visualization
 - Peak, RMS loudness, dynamics, stereo balance, phase correlation, clipping, DC offset, and frequency-band analysis
 - Approximate LUFS, true-peak estimate, noise floor, and timeline problem markers
@@ -79,7 +79,7 @@ Use the **System status** panel inside the app to confirm:
 - AI copilot is using a free local LLM or local DSP/OKF rules
 - OKF/RAG knowledge documents are loaded
 - FFmpeg format support is active or WAV-only
-- Demucs stem separation is ready or needs installation
+- Demucs stem separation or free FFmpeg fallback is ready
 - storage is using free JSON files or free SQLite
 
 ## Free Local AI Setup
@@ -88,7 +88,7 @@ Auralyze is free by default. It uses:
 
 - local DSP analysis in Flutter
 - local OKF/RAG knowledge in the backend
-- Demucs for open-source stem separation
+- Demucs for open-source stem separation, with FFmpeg fallback on free hosting
 - FFmpeg for open-source format conversion
 - Ollama for optional open-source local LLM answers
 
@@ -160,7 +160,7 @@ scripts\check_ffmpeg.cmd
 
 ## Source Separation Setup
 
-Real one-song-to-stems separation uses Demucs on the backend. WAV files can be separated with Demucs alone; MP3, M4A, AAC, FLAC, and OGG also need FFmpeg.
+Real one-song-to-stems separation uses Demucs on the backend when installed. If Demucs is unavailable but FFmpeg is installed, Auralyze uses a free spectral fallback that creates approximate vocals, drums, bass, and other stems for diagnosis. WAV files can be separated with Demucs alone; MP3, M4A, AAC, FLAC, and OGG also need FFmpeg.
 
 1. Run:
 
@@ -177,11 +177,11 @@ scripts\check_separation.cmd
 scripts\start_product.cmd
 ```
 
-4. In the app, press **Refresh status**. Stem separation should show `Demucs ready` or `Demucs ready - WAV only`.
+4. In the app, press **Refresh status**. Stem separation should show `Demucs ready`, `Demucs ready - WAV only`, or `FFmpeg fallback ready`.
 
-5. Use **Separate one song** to upload a full mix. Auralyze separates vocals, drums, bass, and other, then feeds those stems into the existing analyzer.
+5. Use **Separate one song** to upload a full mix. Auralyze separates or approximates vocals, drums, bass, and other, then feeds those stems into the existing analyzer.
 
-The first separation can be slow because Demucs/PyTorch may download model weights and CPU separation is heavy. For testing, start with a short audio file.
+The first Demucs separation can be slow because Demucs/PyTorch may download model weights and CPU separation is heavy. The FFmpeg fallback is faster and works on free hosted deployments, but it is approximate frequency shaping rather than neural source separation. For testing, start with a short audio file.
 
 The current Flutter version includes a Dart analyzer in `auralyze_app/lib/audio_analysis.dart` and a WAV decoder in `auralyze_app/lib/wav_decoder.dart`. It can run generated demo stems or import real WAV files through the Flutter file picker, then compute metrics, spectrum, timeline markers, stem conflicts, processing steps, and plugin recommendations.
 
@@ -190,7 +190,7 @@ It also supports WAV export, self-contained HTML report export, JSON project exp
 Real local workflow now includes:
 
 - WAV upload and analysis
-- single-song source separation through Demucs when installed
+- single-song source separation through Demucs when installed, or approximate FFmpeg fallback on hosted demos
 - original/enhanced A/B playback in Flutter
 - enhanced preview rendering with high-pass cleanup, adaptive EQ, compression, saturation, harshness control, and limiting
 - selected preview WAV export
@@ -341,7 +341,7 @@ The repo includes a single-container deployment path:
 - [render.yaml](C:/Users/Chandu/OneDrive/Dokumen/SoundMesh/render.yaml)
 - [deployment.md](C:/Users/Chandu/OneDrive/Dokumen/SoundMesh/deployment.md)
 
-The container builds Flutter web and serves both the app and backend from one port. Public demo deployments default to `AI_PROVIDER=local-rules`; use your own PC/VPS if you want hosted Ollama + Demucs.
+The container builds Flutter web and serves both the app and backend from one port. Public demo deployments default to `AI_PROVIDER=local-rules` and use the FFmpeg stem fallback; use your own PC/VPS if you want hosted Ollama + Demucs.
 
 The repo also includes a free GitHub Pages workflow at `.github/workflows/pages.yml`. It publishes the Flutter web demo from `main`; backend-only features will show offline until you connect a hosted backend URL through the `AURALYZE_BACKEND_URL` repository variable.
 
