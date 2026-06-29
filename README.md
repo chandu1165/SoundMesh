@@ -1,6 +1,13 @@
-# Auralyze
+# SoundMesh Auralyze
 
-Auralyze is an early prototype for an AI Audio Diagnosis Copilot: a browser-based tool that listens to an audio file, finds common technical mix problems, explains them in plain English, and creates a reversible enhanced preview chain.
+SoundMesh Auralyze is an early prototype for an AI Audio Diagnosis Copilot: a browser-based tool that listens to an audio file, finds common technical mix problems, explains them in plain English, and creates a reversible enhanced preview chain.
+
+## Naming
+
+- **SoundMesh** is the project and repository name.
+- **Auralyze** is the audio-analysis copilot product inside SoundMesh.
+- **SoundMesh Auralyze** is the combined name used for the public product, documentation, and demos.
+- Internal paths and file formats such as `auralyze_app/`, `.auralyze.json`, and the Render service name `auralyze` refer to the Auralyze module inside SoundMesh.
 
 ## Current MVP
 
@@ -21,7 +28,7 @@ Auralyze is an early prototype for an AI Audio Diagnosis Copilot: a browser-base
 - Plugin-style recommendations for EQ, compression, limiting, stereo control, low-end shaping, and reference matching
 - Copyable processing-chain preset notes
 - DAW-neutral processing preset JSON export with ordered processors and suggested parameter values
-- REAPER ReaScript export that inserts Cockos helper FX and stores the Auralyze chain on the selected track
+- REAPER ReaScript export that inserts Cockos helper FX and stores the SoundMesh Auralyze chain on the selected track
 - Prompt-to-sound generator that synthesizes playable/exportable WAV effects locally
 - Built-in production copilot Q&A over the current analysis with a local mixing knowledge base
 - Local project memory for saving, loading, and deleting analysis snapshots
@@ -59,7 +66,7 @@ Future layers:
 
 ## Flutter App
 
-A Flutter product UI is available in `auralyze_app/`.
+The SoundMesh Auralyze Flutter product UI is available in `auralyze_app/`.
 
 Useful commands:
 
@@ -87,7 +94,7 @@ Use the **System status** panel inside the app to confirm:
 
 ## Free Local AI Setup
 
-Auralyze is free by default. It uses:
+SoundMesh Auralyze is free by default. It uses:
 
 - local DSP analysis in Flutter
 - local OKF/RAG knowledge in the backend
@@ -122,7 +129,7 @@ Never commit `.env`; it is ignored by git.
 
 ## Free Local Storage
 
-Auralyze does not require Firebase, Supabase, Postgres, or any paid database. Set this in `.env`:
+SoundMesh Auralyze does not require Firebase, Supabase, Postgres, or any paid database. Set this in `.env`:
 
 ```text
 AURALYZE_STORAGE=json
@@ -153,7 +160,7 @@ The backend stores projects, accounts, and custom knowledge in the same `app_sta
 
 ## Free Hosted Auth
 
-The live demo uses local demo auth by default so visitors can try it immediately. The app also has a real Firebase Email/Password login path that stays free on Firebase Spark for a student/demo project.
+The live demo uses local demo auth by default so visitors can try it immediately. The SoundMesh Auralyze app also has a real Firebase Email/Password login path that stays free on Firebase Spark for a student/demo project.
 
 To enable Firebase login:
 
@@ -212,7 +219,7 @@ scripts\check_ffmpeg.cmd
 
 ## Source Separation Setup
 
-Real one-song-to-stems separation uses Demucs on the backend when installed. If Demucs is unavailable but FFmpeg is installed, Auralyze uses a free spectral fallback that creates approximate vocals, drums, bass, and other stems for diagnosis. WAV files can be separated with Demucs alone; MP3, M4A, AAC, FLAC, and OGG also need FFmpeg.
+Real one-song-to-stems separation uses Demucs on the backend when installed. If Demucs is unavailable but FFmpeg is installed, SoundMesh Auralyze uses a free spectral fallback that creates approximate vocals, drums, bass, and other stems for diagnosis. WAV files can be separated with Demucs alone; MP3, M4A, AAC, FLAC, and OGG also need FFmpeg.
 
 1. Run:
 
@@ -231,11 +238,11 @@ scripts\start_product.cmd
 
 4. In the app, press **Refresh status**. Stem separation should show `Demucs ready`, `Demucs ready - WAV only`, or `FFmpeg fallback ready`.
 
-5. Use **Separate one song** to upload a full mix. Auralyze separates or approximates vocals, drums, bass, and other, then feeds those stems into the existing analyzer.
+5. Use **Separate one song** to upload a full mix. SoundMesh Auralyze separates or approximates vocals, drums, bass, and other, then feeds those stems into the existing analyzer.
 
 The first Demucs separation can be slow because Demucs/PyTorch may download model weights and CPU separation is heavy. The FFmpeg fallback is faster and works on free hosted deployments, but it is approximate frequency shaping rather than neural source separation. For testing, start with a short audio file.
 
-The current Flutter version includes a Dart analyzer in `auralyze_app/lib/audio_analysis.dart` and a WAV decoder in `auralyze_app/lib/wav_decoder.dart`. It can run generated demo stems or import real WAV files through the Flutter file picker, then compute metrics, spectrum, timeline markers, stem conflicts, processing steps, and plugin recommendations.
+The current SoundMesh Auralyze Flutter version includes a Dart analyzer in `auralyze_app/lib/audio_analysis.dart` and a WAV decoder in `auralyze_app/lib/wav_decoder.dart`. It can run generated demo stems or import real WAV files through the Flutter file picker, then compute metrics, spectrum, timeline markers, stem conflicts, processing steps, and plugin recommendations.
 
 It also supports WAV export, self-contained HTML report export, JSON project export/import, local copilot answers, and copyable processing-chain notes.
 
@@ -279,7 +286,7 @@ Additional product surfaces include:
 
 ## OKF Knowledge Files
 
-Auralyze does not need a vector database. It can retrieve from local **Open Knowledge Files** in `backend/knowledge/*.okf.json`.
+SoundMesh Auralyze does not need a vector database. It can retrieve from local **Open Knowledge Files** in `backend/knowledge/*.okf.json`.
 
 Each OKF entry can define:
 
@@ -300,7 +307,7 @@ The seed file is `backend/knowledge/audio_production.okf.json`.
 
 ## OKF MCP Server
 
-Auralyze also exposes OKF through a dependency-free MCP stdio server:
+SoundMesh Auralyze also exposes OKF through a dependency-free MCP stdio server:
 
 ```cmd
 scripts\start_okf_mcp.cmd

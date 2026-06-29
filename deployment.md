@@ -1,4 +1,4 @@
-# Auralyze Deployment Notes
+# SoundMesh Auralyze Deployment Notes
 
 ## Recommended Deployment Shape
 
@@ -110,7 +110,7 @@ AURALYZE_STORAGE=sqlite
 AURALYZE_FALLBACK_MAX_SECONDS=180
 ```
 
-If Ollama is not installed, Auralyze still uses local DSP/OKF rules. Optional commercial providers such as hosted LLMs or checkout can be added later, but they are not required for this project.
+If Ollama is not installed, SoundMesh Auralyze still uses local DSP/OKF rules. Optional commercial providers such as hosted LLMs or checkout can be added later, but they are not required for this project.
 
 Knowledge retrieval is local. Ship structured OKF files in `backend/knowledge/*.okf.json`, markdown references in `backend/knowledge/*.md`, or user-added notes in JSON/SQLite storage.
 

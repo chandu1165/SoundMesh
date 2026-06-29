@@ -1,6 +1,6 @@
-# Auralyze Backend Scaffold
+# SoundMesh Auralyze Backend Scaffold
 
-Dependency-free local backend scaffold for the product features that need a service layer.
+Dependency-free local backend scaffold for the SoundMesh Auralyze product features that need a service layer.
 
 ## Run
 
